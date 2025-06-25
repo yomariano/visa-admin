@@ -21,8 +21,10 @@ import {
   updateRequiredDocument,
   deleteRequiredDocument
 } from '@/lib/database-actions';
+import { useAuth } from '@/components/auth-provider';
+import { LoginPage, UnauthorizedPage } from '@/components/login';
 
-export default function AdminPage() {
+function AdminInterface() {
   const [activeTab, setActiveTab] = useState<'permit-rules' | 'required-documents'>('permit-rules');
   const [permitRules, setPermitRules] = useState<PermitRule[]>([]);
   const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocument[]>([]);
@@ -34,6 +36,8 @@ export default function AdminPage() {
   const [editingPermitRule, setEditingPermitRule] = useState<PermitRule | null>(null);
   const [editingDocument, setEditingDocument] = useState<RequiredDocument | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'permit-rule' | 'document'; id: number } | null>(null);
+
+  const { user, signOut } = useAuth();
 
   // Load data
   useEffect(() => {
@@ -160,9 +164,19 @@ export default function AdminPage() {
       <Toaster position="top-right" />
       
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Visa Admin Panel</h1>
-          <p className="text-gray-600 mt-2">Manage permit rules and required documents</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Visa Admin Panel</h1>
+            <p className="text-gray-600 mt-2">Manage permit rules and required documents</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              Welcome, <strong>{user?.email}</strong>
+            </span>
+            <Button variant="outline" onClick={signOut}>
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -514,4 +528,29 @@ export default function AdminPage() {
       </div>
     </div>
   );
+}
+
+export default function AdminPage() {
+  const { user, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  if (!isAdmin) {
+    return <UnauthorizedPage />;
+  }
+
+  return <AdminInterface />;
 }
