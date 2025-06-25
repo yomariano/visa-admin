@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration - UPDATE THESE VALUES WITH YOUR ACTUAL SUPABASE CREDENTIALS
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://your-project.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key-here';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
