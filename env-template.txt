@@ -1,0 +1,22 @@
+# Copy this to .env.local and update with your actual values
+
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-coolify-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+
+# Admin Emails (comma-separated, no spaces around commas work fine)
+ADMIN_EMAILS=your-email@gmail.com,colleague1@gmail.com,colleague2@gmail.com
+
+# Alternative: If you want the emails to be public (visible in browser)
+# NEXT_PUBLIC_ADMIN_EMAILS=your-email@gmail.com,colleague1@gmail.com
+
+# Database Direct Connection (for custom queries)
+DATABASE_URL=postgresql://postgres:7s4LImqKDuWEdMQmbArzk1Ws3Mc7c62t@thecodejesters.xyz:5433/postgres
+DB_HOST=thecodejesters.xyz
+DB_PORT=5433
+DB_USER=postgres
+DB_PASSWORD=7s4LImqKDuWEdMQmbArzk1Ws3Mc7c62t
+DB_NAME=postgres
+
+# Example of multiple emails:
+# ADMIN_EMAILS=john@company.com,jane@company.com,admin@company.com,manager@company.com 
