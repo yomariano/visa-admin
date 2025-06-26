@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export async function POST(_request: Request, { params }: { params: { id: string } }) {
+export async function POST(_request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -24,7 +24,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
     // Omit columns that should not be duplicated
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _discardId, updated_at: _discardUpdatedAt, ...insertData } = existing as Record<string, unknown>;
+    const { id: _id, updated_at: _updated, ...insertData } = existing as Record<string, unknown>;
 
     const { data: newRow, error: insertError } = await supabase
       .from('permit_rules')
