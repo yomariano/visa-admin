@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export async function POST(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -9,6 +9,7 @@ export async function POST(_request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: 'Missing env vars' }, { status: 500 });
     }
 
+    const params = await context.params;
     const id = Number(params.id);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

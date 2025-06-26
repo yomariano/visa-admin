@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -10,6 +10,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Missing environment variables' }, { status: 500 });
     }
 
+    const params = await context.params;
     const id = Number(params.id);
     const body = await request.json();
 
@@ -31,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -40,6 +41,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
       return NextResponse.json({ error: 'Missing environment variables' }, { status: 500 });
     }
 
+    const params = await context.params;
     const id = Number(params.id);
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
