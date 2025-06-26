@@ -45,19 +45,31 @@ function AdminInterface() {
   }, []);
 
   const loadData = async () => {
+    console.log('🚀 loadData() called - starting data fetch...');
     setLoading(true);
     try {
+      console.log('📞 Calling getPermitRules() and getRequiredDocuments()...');
       const [rules, documents] = await Promise.all([
         getPermitRules(),
         getRequiredDocuments()
       ]);
+      
+      console.log('📋 Received permit rules:', rules);
+      console.log('📋 Received required documents:', documents);
+      console.log('📊 Rules count:', rules?.length || 0);
+      console.log('📊 Documents count:', documents?.length || 0);
+      
       setPermitRules(rules);
       setRequiredDocuments(documents);
+      
+      console.log('✅ Data loaded successfully');
     } catch (error) {
+      console.error('💥 Error in loadData:', error);
       toast.error('Failed to load data');
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+      console.log('🏁 loadData() completed');
     }
   };
 
