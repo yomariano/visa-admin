@@ -21,6 +21,7 @@ import {
 } from '@/lib/database-actions';
 import { useAuth } from '@/components/auth-provider';
 import { LoginPage, UnauthorizedPage } from '@/components/login';
+import { supabase } from '@/lib/supabase';
 
 function AdminInterface() {
   const [activeTab, setActiveTab] = useState<'permit-rules' | 'required-documents'>('permit-rules');
@@ -46,29 +47,30 @@ function AdminInterface() {
     console.log('🚀 loadData() called - starting data fetch...');
     setLoading(true);
     try {
-      console.log('📞 Calling API routes for permit rules and required documents...');
-      
-      // Use API routes instead of server actions
-      const [rulesResponse, documentsResponse] = await Promise.all([
-        fetch('/api/permit-rules'),
-        fetch('/api/required-documents')
+      console.log('📞 Fetching data directly using Supabase client on the client side...');
+
+      const [{ data: rules, error: rulesError }, { data: documents, error: docsError }] = await Promise.all([
+        supabase
+          .from('permit_rules')
+          .select('*')
+          .order('id', { ascending: false }),
+        supabase
+          .from('required_documents')
+          .select('*')
+          .order('sort_order', { ascending: true })
+          .order('id', { ascending: false })
       ]);
-      
-      console.log('📡 API responses received');
-      console.log('Rules response status:', rulesResponse.status);
-      console.log('Documents response status:', documentsResponse.status);
-      
-      if (!rulesResponse.ok) {
-        throw new Error(`Failed to fetch permit rules: ${rulesResponse.status}`);
+
+      if (rulesError) {
+        console.error('❌ Error fetching permit rules:', rulesError);
+        throw rulesError;
       }
-      
-      if (!documentsResponse.ok) {
-        throw new Error(`Failed to fetch required documents: ${documentsResponse.status}`);
+
+      if (docsError) {
+        console.error('❌ Error fetching required documents:', docsError);
+        throw docsError;
       }
-      
-      const rules = await rulesResponse.json();
-      const documents = await documentsResponse.json();
-      
+
       console.log('📋 Received permit rules:', rules);
       console.log('📋 Received required documents:', documents);
       console.log('📊 Rules count:', rules?.length || 0);
