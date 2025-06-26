@@ -102,20 +102,21 @@ function AdminInterface() {
 
     try {
       if (editingPermitRule) {
-        const res = await fetch(`/api/permit-rules/${editingPermitRule.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error('Failed to update');
+        console.log('🔄 Updating permit rule client-side:', editingPermitRule.id, data);
+        const { error } = await supabase
+          .from('permit_rules')
+          .update(data)
+          .eq('id', editingPermitRule.id);
+        
+        if (error) throw error;
         toast.success('Permit rule updated successfully');
       } else {
-        const res = await fetch('/api/permit-rules', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) throw new Error('Failed to create');
+        console.log('➕ Creating permit rule client-side:', data);
+        const { error } = await supabase
+          .from('permit_rules')
+          .insert([data]);
+        
+        if (error) throw error;
         toast.success('Permit rule created successfully');
       }
       setShowPermitRuleDialog(false);
@@ -129,8 +130,13 @@ function AdminInterface() {
 
   const handleDeletePermitRule = async (id: number) => {
     try {
-      const res = await fetch(`/api/permit-rules/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      console.log('🗑️ Deleting permit rule client-side:', id);
+      const { error } = await supabase
+        .from('permit_rules')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
       toast.success('Permit rule deleted successfully');
       setDeleteConfirm(null);
       loadData();
@@ -142,8 +148,26 @@ function AdminInterface() {
 
   const handleClonePermitRule = async (id: number) => {
     try {
-      const res = await fetch(`/api/permit-rules/${id}/clone`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to clone');
+      console.log('📋 Cloning permit rule client-side:', id);
+      
+      // First, fetch the existing rule
+      const { data: existing, error: fetchError } = await supabase
+        .from('permit_rules')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      // Remove ID and timestamp fields, then insert
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id: _id, created_at: _created, updated_at: _updated, ...cloneData } = existing;
+      
+      const { error: insertError } = await supabase
+        .from('permit_rules')
+        .insert([cloneData]);
+      
+      if (insertError) throw insertError;
       toast.success('Permit rule cloned successfully');
       loadData();
     } catch (error) {
