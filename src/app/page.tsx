@@ -12,9 +12,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PermitRule, RequiredDocument } from '@/lib/types';
 import {
-  createPermitRule,
-  updatePermitRule,
-  deletePermitRule,
   createRequiredDocument,
   updateRequiredDocument,
   deleteRequiredDocument
@@ -105,10 +102,20 @@ function AdminInterface() {
 
     try {
       if (editingPermitRule) {
-        await updatePermitRule(editingPermitRule.id, data);
+        const res = await fetch(`/api/permit-rules/${editingPermitRule.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to update');
         toast.success('Permit rule updated successfully');
       } else {
-        await createPermitRule(data);
+        const res = await fetch('/api/permit-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        if (!res.ok) throw new Error('Failed to create');
         toast.success('Permit rule created successfully');
       }
       setShowPermitRuleDialog(false);
@@ -122,13 +129,26 @@ function AdminInterface() {
 
   const handleDeletePermitRule = async (id: number) => {
     try {
-      await deletePermitRule(id);
+      const res = await fetch(`/api/permit-rules/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete');
       toast.success('Permit rule deleted successfully');
       setDeleteConfirm(null);
       loadData();
     } catch (error) {
       toast.error('Failed to delete permit rule');
       console.error('Error deleting permit rule:', error);
+    }
+  };
+
+  const handleClonePermitRule = async (id: number) => {
+    try {
+      const res = await fetch(`/api/permit-rules/${id}/clone`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to clone');
+      toast.success('Permit rule cloned successfully');
+      loadData();
+    } catch (error) {
+      toast.error('Failed to clone permit rule');
+      console.error('Error cloning permit rule:', error);
     }
   };
 
@@ -351,6 +371,13 @@ function AdminInterface() {
                             onClick={() => setDeleteConfirm({ type: 'permit-rule', id: rule.id })}
                           >
                             Delete
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleClonePermitRule(rule.id)}
+                          >
+                            Clone
                           </Button>
                         </div>
                       </TableCell>
