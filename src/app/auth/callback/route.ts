@@ -11,4 +11,6 @@ export async function GET(request: NextRequest) {
 
   // Redirect to the dashboard page after successful authentication
   return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+  // Redirect to the root page after successful authentication
+  return NextResponse.redirect(requestUrl.origin);
 } 
