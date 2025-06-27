@@ -24,6 +24,8 @@ function AdminInterface() {
   const [activeTab, setActiveTab] = useState<'permit-rules' | 'required-documents'>('permit-rules');
   const [permitRules, setPermitRules] = useState<PermitRule[]>([]);
   const [requiredDocuments, setRequiredDocuments] = useState<RequiredDocument[]>([]);
+  const [permitTypes, setPermitTypes] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   
   // Form states
@@ -46,7 +48,12 @@ function AdminInterface() {
     try {
       console.log('📞 Fetching data directly using Supabase client on the client side...');
 
-      const [{ data: rules, error: rulesError }, { data: documents, error: docsError }] = await Promise.all([
+      const [
+        { data: rules, error: rulesError }, 
+        { data: documents, error: docsError },
+        { data: permitTypesData, error: permitTypesError },
+        { data: categoriesData, error: categoriesError }
+      ] = await Promise.all([
         supabase
           .from('permit_rules')
           .select('*')
@@ -55,7 +62,16 @@ function AdminInterface() {
           .from('required_documents')
           .select('*')
           .order('sort_order', { ascending: true })
-          .order('id', { ascending: false })
+          .order('id', { ascending: false }),
+        supabase
+          .from('permit_types')
+          .select('permit_type')
+          .order('permit_type', { ascending: true }),
+        supabase
+          .from('permit_rules')
+          .select('category')
+          .not('category', 'is', null)
+          .order('category', { ascending: true })
       ]);
 
       if (rulesError) {
@@ -68,13 +84,35 @@ function AdminInterface() {
         throw docsError;
       }
 
+      if (permitTypesError) {
+        console.error('❌ Error fetching permit types:', permitTypesError);
+        // Don't throw, just log the error and continue
+      }
+
+      if (categoriesError) {
+        console.error('❌ Error fetching categories:', categoriesError);
+        // Don't throw, just log the error and continue
+      }
+
       console.log('📋 Received permit rules:', rules);
       console.log('📋 Received required documents:', documents);
+      console.log('📋 Received permit types:', permitTypesData);
+      console.log('📋 Received categories:', categoriesData);
       console.log('📊 Rules count:', rules?.length || 0);
       console.log('📊 Documents count:', documents?.length || 0);
       
       setPermitRules(rules);
       setRequiredDocuments(documents);
+      
+      // Extract permit types
+      const uniquePermitTypes = permitTypesData?.map(item => item.permit_type) || [];
+      setPermitTypes(uniquePermitTypes);
+      
+      // Extract unique categories from existing permit rules
+      const uniqueCategories = Array.from(new Set(
+        categoriesData?.map(item => item.category).filter(Boolean) || []
+      ));
+      setCategories(uniqueCategories);
       
       console.log('✅ Data loaded successfully');
     } catch (error) {
@@ -297,21 +335,37 @@ function AdminInterface() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="permit_type">Permit Type</Label>
-                        <Input
+                        <select
                           id="permit_type"
                           name="permit_type"
                           defaultValue={editingPermitRule?.permit_type || ''}
+                          className="w-full p-2 border border-gray-300 rounded-md"
                           required
-                        />
+                        >
+                          <option value="">Select a permit type...</option>
+                          {permitTypes.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <Label htmlFor="category">Category</Label>
-                        <Input
+                        <input
                           id="category"
                           name="category"
+                          list="categories"
                           defaultValue={editingPermitRule?.category || ''}
+                          className="w-full p-2 border border-gray-300 rounded-md"
+                          placeholder="Enter or select category..."
                           required
                         />
+                        <datalist id="categories">
+                          {categories.map((category) => (
+                            <option key={category} value={category} />
+                          ))}
+                        </datalist>
                       </div>
                     </div>
                     <div>
@@ -429,12 +483,20 @@ function AdminInterface() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="permit_type">Permit Type</Label>
-                        <Input
+                        <select
                           id="permit_type"
                           name="permit_type"
                           defaultValue={editingDocument?.permit_type || ''}
+                          className="w-full p-2 border border-gray-300 rounded-md"
                           required
-                        />
+                        >
+                          <option value="">Select a permit type...</option>
+                          {permitTypes.map((type) => (
+                            <option key={type} value={type}>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <Label htmlFor="required_for">Required For</Label>
