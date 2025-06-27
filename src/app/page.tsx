@@ -46,13 +46,11 @@ function AdminInterface() {
     console.log('🚀 loadData() called - starting data fetch...');
     setLoading(true);
     try {
-      console.log('📞 Fetching data directly using Supabase client on the client side...');
+      console.log('📞 Fetching data directly using Supabase client...');
 
       const [
         { data: rules, error: rulesError }, 
-        { data: documents, error: docsError },
-        { data: permitTypesData, error: permitTypesError },
-        { data: categoriesData, error: categoriesError }
+        { data: documents, error: docsError }
       ] = await Promise.all([
         supabase
           .from('permit_rules')
@@ -62,16 +60,7 @@ function AdminInterface() {
           .from('required_documents')
           .select('*')
           .order('sort_order', { ascending: true })
-          .order('id', { ascending: false }),
-        supabase
-          .from('permit_types')
-          .select('permit_type')
-          .order('permit_type', { ascending: true }),
-        supabase
-          .from('permit_rules')
-          .select('category')
-          .not('category', 'is', null)
-          .order('category', { ascending: true })
+          .order('id', { ascending: false })
       ]);
 
       if (rulesError) {
@@ -84,35 +73,31 @@ function AdminInterface() {
         throw docsError;
       }
 
-      if (permitTypesError) {
-        console.error('❌ Error fetching permit types:', permitTypesError);
-        // Don't throw, just log the error and continue
-      }
-
-      if (categoriesError) {
-        console.error('❌ Error fetching categories:', categoriesError);
-        // Don't throw, just log the error and continue
-      }
-
       console.log('📋 Received permit rules:', rules);
       console.log('📋 Received required documents:', documents);
-      console.log('📋 Received permit types:', permitTypesData);
-      console.log('📋 Received categories:', categoriesData);
       console.log('📊 Rules count:', rules?.length || 0);
       console.log('📊 Documents count:', documents?.length || 0);
       
-      setPermitRules(rules);
-      setRequiredDocuments(documents);
+      setPermitRules(rules || []);
+      setRequiredDocuments(documents || []);
       
-      // Extract permit types
-      const uniquePermitTypes = permitTypesData?.map(item => item.permit_type) || [];
+      // Extract unique permit types from existing permit rules and required documents
+      const permitTypesFromRules = rules?.map(rule => rule.permit_type).filter(Boolean) || [];
+      const permitTypesFromDocs = documents?.map(doc => doc.permit_type).filter(Boolean) || [];
+      const allPermitTypes = [...permitTypesFromRules, ...permitTypesFromDocs];
+      const uniquePermitTypes = Array.from(new Set(allPermitTypes)).sort();
       setPermitTypes(uniquePermitTypes);
       
       // Extract unique categories from existing permit rules
       const uniqueCategories = Array.from(new Set(
-        categoriesData?.map(item => item.category).filter(Boolean) || []
-      ));
+        rules?.map(rule => rule.category).filter(Boolean) || []
+      )).sort();
       setCategories(uniqueCategories);
+      
+      console.log('📋 Extracted permit types:', uniquePermitTypes);
+      console.log('📋 Extracted categories:', uniqueCategories);
+      console.log('📊 Categories count:', uniqueCategories.length);
+      console.log('📋 Raw categories from rules:', rules?.map(rule => rule.category) || []);
       
       console.log('✅ Data loaded successfully');
     } catch (error) {
@@ -130,13 +115,24 @@ function AdminInterface() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    // Get category from either the select dropdown or the custom input
+    const selectedCategory = formData.get('category') as string;
+    const customCategory = formData.get('custom_category') as string;
+    const finalCategory = customCategory?.trim() || selectedCategory;
+    
     const data = {
       permit_type: formData.get('permit_type') as string,
       title: formData.get('title') as string,
       rule: formData.get('rule') as string,
-      category: formData.get('category') as string,
+      category: finalCategory,
       is_required: formData.get('is_required') === 'true',
     };
+
+    // Validate that we have a category
+    if (!data.category) {
+      toast.error('Please select or enter a category');
+      return;
+    }
 
     try {
       if (editingPermitRule) {
@@ -159,7 +155,7 @@ function AdminInterface() {
       }
       setShowPermitRuleDialog(false);
       setEditingPermitRule(null);
-      loadData();
+      loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to save permit rule');
       console.error('Error saving permit rule:', error);
@@ -177,7 +173,7 @@ function AdminInterface() {
       if (error) throw error;
       toast.success('Permit rule deleted successfully');
       setDeleteConfirm(null);
-      loadData();
+      loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to delete permit rule');
       console.error('Error deleting permit rule:', error);
@@ -207,7 +203,7 @@ function AdminInterface() {
       
       if (insertError) throw insertError;
       toast.success('Permit rule cloned successfully');
-      loadData();
+      loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to clone permit rule');
       console.error('Error cloning permit rule:', error);
@@ -279,10 +275,18 @@ function AdminInterface() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Visa Admin Panel</h1>
             <p className="text-gray-600 mt-2">Manage permit rules and required documents</p>
+            {process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true' && (
+              <div className="mt-2 px-3 py-1 bg-yellow-100 border border-yellow-400 text-yellow-800 text-sm rounded-md inline-block">
+                🚧 DEV MODE: Authentication bypassed
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
               Welcome, <strong>{user?.email}</strong>
+              {process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true' && (
+                <span className="ml-2 text-yellow-600 font-medium">(Dev User)</span>
+              )}
             </span>
             <Button variant="outline" onClick={signOut}>
               Sign Out
@@ -352,20 +356,50 @@ function AdminInterface() {
                       </div>
                       <div>
                         <Label htmlFor="category">Category</Label>
-                        <input
+                        <select
                           id="category"
                           name="category"
-                          list="categories"
                           defaultValue={editingPermitRule?.category || ''}
                           className="w-full p-2 border border-gray-300 rounded-md"
-                          placeholder="Enter or select category..."
-                          required
-                        />
-                        <datalist id="categories">
+                          onChange={(e) => {
+                            const customInput = document.getElementById('custom_category') as HTMLInputElement;
+                            if (e.target.value && customInput) {
+                              customInput.value = '';
+                            }
+                          }}
+                        >
+                          <option value="">Select a category...</option>
                           {categories.map((category) => (
-                            <option key={category} value={category} />
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
                           ))}
-                        </datalist>
+                        </select>
+                        <div className="mt-1 text-xs text-gray-500">
+                          Available categories: {categories.length > 0 ? categories.join(', ') : 'None'}
+                        </div>
+                        <div className="mt-2">
+                          <Label htmlFor="custom_category" className="text-xs font-medium text-blue-600">Or create a new category:</Label>
+                          <input
+                            id="custom_category"
+                            name="custom_category"
+                            className="w-full p-2 border border-blue-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="Type a new category name..."
+                            onInput={(e) => {
+                              const customInput = e.currentTarget;
+                              const selectInput = document.getElementById('category') as HTMLSelectElement;
+                              if (customInput.value.trim()) {
+                                selectInput.value = '';
+                                selectInput.required = false;
+                              } else {
+                                selectInput.required = true;
+                              }
+                            }}
+                          />
+                          <div className="mt-1 text-xs text-blue-500">
+                            💡 Tip: Enter a new category name to create it automatically
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <div>
