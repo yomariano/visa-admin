@@ -91,22 +91,28 @@ export const createServerSupabaseClient = () => {
   });
 };
 
-// Get admin emails (server-side safe)
+// Get admin emails (works both server-side and client-side)
 const getAdminEmails = (): string[] => {
   let adminEmailsEnv: string | undefined;
   
-  // Try to get from server-side first, then fallback to client-side for dev
+  // Try to get from server-side first, then fallback to client-side
   if (typeof window === 'undefined') {
-    // Server-side
+    // Server-side - use secure variable
     adminEmailsEnv = process.env.ADMIN_EMAILS;
-  } else if (isDevelopment) {
-    // Client-side in development only
+  } else {
+    // Client-side - try public variable (needed for auth checks)
     adminEmailsEnv = process.env.NEXT_PUBLIC_ADMIN_EMAILS;
+    
+    // If no public admin emails and in development, try the dev variable
+    if (!adminEmailsEnv && isDevelopment) {
+      devLog('⚠️ Using fallback admin emails for development');
+    }
   }
   
   if (isDevelopment) {
     devLog('🔍 Getting admin emails...');
     devLog('Admin emails available:', adminEmailsEnv ? '✅ Set' : '❌ Missing');
+    devLog('Running on:', typeof window === 'undefined' ? 'Server' : 'Client');
   }
   
   if (!adminEmailsEnv) {
@@ -122,8 +128,9 @@ const getAdminEmails = (): string[] => {
       devLog('📧 Using fallback emails (development only)');
       return fallbackEmails;
     } else {
-      // In production, no fallback - must be configured properly
-      console.error('❌ ADMIN_EMAILS not configured in production');
+      // In production, if no admin emails are configured, log error and return empty
+      console.error('❌ ADMIN_EMAILS not configured properly in production');
+      console.error('💡 Make sure to set NEXT_PUBLIC_ADMIN_EMAILS for client-side auth checks');
       return [];
     }
   }
