@@ -35,6 +35,13 @@ function AdminInterface() {
   const [editingDocument, setEditingDocument] = useState<RequiredDocument | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'permit-rule' | 'document'; id: number } | null>(null);
 
+  // Loading states for operations
+  const [isSubmittingRule, setIsSubmittingRule] = useState(false);
+  const [isSubmittingDocument, setIsSubmittingDocument] = useState(false);
+  const [isDeletingRule, setIsDeletingRule] = useState(false);
+  const [isDeletingDocument, setIsDeletingDocument] = useState(false);
+  const [isCloningRule, setIsCloningRule] = useState(false);
+
   const { user, signOut } = useAuth();
 
   // Load data
@@ -78,6 +85,25 @@ function AdminInterface() {
       console.log('📊 Rules count:', rules?.length || 0);
       console.log('📊 Documents count:', documents?.length || 0);
       
+      // Log specific documents for debugging
+      if (documents && documents.length > 0) {
+        console.log('📄 First few documents:');
+        documents.slice(0, 3).forEach((doc, index) => {
+          console.log(`  ${index + 1}. ID: ${doc.id}, Name: "${doc.document_name}", Type: ${doc.permit_type}, Active: ${doc.is_active}`);
+        });
+        
+        // Check for signature-related documents
+        const signatureDocs = documents.filter(doc => 
+          doc.document_name.toLowerCase().includes('signature')
+        );
+        console.log('📝 Signature-related documents found:', signatureDocs.length);
+        if (signatureDocs.length > 0) {
+          signatureDocs.forEach(doc => {
+            console.log(`  - ID: ${doc.id}, Name: "${doc.document_name}", Active: ${doc.is_active}`);
+          });
+        }
+      }
+      
       setPermitRules(rules || []);
       setRequiredDocuments(documents || []);
       
@@ -113,6 +139,8 @@ function AdminInterface() {
   // Permit Rule handlers
   const handlePermitRuleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmittingRule(true);
+    
     const formData = new FormData(e.currentTarget);
     
     // Get category from either the select dropdown or the custom input
@@ -131,6 +159,7 @@ function AdminInterface() {
     // Validate that we have a category
     if (!data.category) {
       toast.error('Please select or enter a category');
+      setIsSubmittingRule(false);
       return;
     }
 
@@ -155,14 +184,17 @@ function AdminInterface() {
       }
       setShowPermitRuleDialog(false);
       setEditingPermitRule(null);
-      loadData(); // Reload data from Supabase
+      await loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to save permit rule');
       console.error('Error saving permit rule:', error);
+    } finally {
+      setIsSubmittingRule(false);
     }
   };
 
   const handleDeletePermitRule = async (id: number) => {
+    setIsDeletingRule(true);
     try {
       console.log('🗑️ Deleting permit rule client-side:', id);
       const { error } = await supabase
@@ -173,14 +205,17 @@ function AdminInterface() {
       if (error) throw error;
       toast.success('Permit rule deleted successfully');
       setDeleteConfirm(null);
-      loadData(); // Reload data from Supabase
+      await loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to delete permit rule');
       console.error('Error deleting permit rule:', error);
+    } finally {
+      setIsDeletingRule(false);
     }
   };
 
   const handleClonePermitRule = async (id: number) => {
+    setIsCloningRule(true);
     try {
       console.log('📋 Cloning permit rule client-side:', id);
       
@@ -203,16 +238,20 @@ function AdminInterface() {
       
       if (insertError) throw insertError;
       toast.success('Permit rule cloned successfully');
-      loadData(); // Reload data from Supabase
+      await loadData(); // Reload data from Supabase
     } catch (error) {
       toast.error('Failed to clone permit rule');
       console.error('Error cloning permit rule:', error);
+    } finally {
+      setIsCloningRule(false);
     }
   };
 
   // Document handlers
   const handleDocumentSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmittingDocument(true);
+    
     const formData = new FormData(e.currentTarget);
     
     const data = {
@@ -227,34 +266,70 @@ function AdminInterface() {
       validation_rules: {},
     };
 
+    console.log('🚀 Document submission started');
+    console.log('📋 Form data being submitted:', data);
+    console.log('📊 Data validation check:');
+    console.log('  - permit_type:', data.permit_type, typeof data.permit_type);
+    console.log('  - document_name:', data.document_name, typeof data.document_name);
+    console.log('  - required_for:', data.required_for, typeof data.required_for);
+    console.log('  - is_mandatory:', data.is_mandatory, typeof data.is_mandatory);
+    console.log('  - is_active:', data.is_active, typeof data.is_active);
+    console.log('  - sort_order:', data.sort_order, typeof data.sort_order);
+
     try {
+      let result;
       if (editingDocument) {
-        await updateRequiredDocument(editingDocument.id, data);
+        console.log('🔄 Updating existing document with ID:', editingDocument.id);
+        result = await updateRequiredDocument(editingDocument.id, data);
+        console.log('📝 Update result:', result);
         toast.success('Required document updated successfully');
       } else {
-        await createRequiredDocument(data);
+        console.log('➕ Creating new document');
+        result = await createRequiredDocument(data);
+        console.log('📝 Create result:', result);
         toast.success('Required document created successfully');
       }
+      
+      console.log('✅ Document operation completed successfully');
+      console.log('🔄 Closing dialog and refreshing data...');
+      
       setShowDocumentDialog(false);
       setEditingDocument(null);
-      loadData();
+      await loadData();
+      
+      console.log('🏁 Document submission process completed');
     } catch (error) {
+      console.error('💥 Error in document submission:', error);
+      console.error('📊 Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        data: data
+      });
       toast.error('Failed to save required document');
       console.error('Error saving required document:', error);
+    } finally {
+      setIsSubmittingDocument(false);
     }
   };
 
   const handleDeleteDocument = async (id: number) => {
+    setIsDeletingDocument(true);
     try {
       await deleteRequiredDocument(id);
       toast.success('Required document deleted successfully');
       setDeleteConfirm(null);
-      loadData();
+      await loadData();
     } catch (error) {
       toast.error('Failed to delete required document');
       console.error('Error deleting required document:', error);
+    } finally {
+      setIsDeletingDocument(false);
     }
   };
+
+  // Check if any operation is in progress
+  const isAnyOperationInProgress = loading || isSubmittingRule || isSubmittingDocument || 
+    isDeletingRule || isDeletingDocument || isCloningRule;
 
   if (loading) {
     return (
@@ -269,6 +344,23 @@ function AdminInterface() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <Toaster position="top-right" />
+      
+      {/* Loading overlay when any operation is in progress */}
+      {isAnyOperationInProgress && (
+        <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-3 shadow-lg border">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-700">
+              {loading && 'Loading data...'}
+              {isSubmittingRule && (editingPermitRule ? 'Updating permit rule...' : 'Creating permit rule...')}
+              {isSubmittingDocument && (editingDocument ? 'Updating document...' : 'Creating document...')}
+              {isDeletingRule && 'Deleting permit rule...'}
+              {isDeletingDocument && 'Deleting document...'}
+              {isCloningRule && 'Cloning permit rule...'}
+            </span>
+          </div>
+        </div>
+      )}
       
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex justify-between items-center">
@@ -288,7 +380,7 @@ function AdminInterface() {
                 <span className="ml-2 text-yellow-600 font-medium">(Dev User)</span>
               )}
             </span>
-            <Button variant="outline" onClick={signOut}>
+            <Button variant="outline" onClick={signOut} disabled={isAnyOperationInProgress}>
               Sign Out
             </Button>
           </div>
@@ -300,21 +392,23 @@ function AdminInterface() {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('permit-rules')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                disabled={isAnyOperationInProgress}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'permit-rules'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Permit Rules ({permitRules.length})
               </button>
               <button
                 onClick={() => setActiveTab('required-documents')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                disabled={isAnyOperationInProgress}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'required-documents'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Required Documents ({requiredDocuments.length})
               </button>
@@ -327,9 +421,14 @@ function AdminInterface() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Permit Rules</CardTitle>
-              <Dialog open={showPermitRuleDialog} onOpenChange={setShowPermitRuleDialog}>
+              <Dialog open={showPermitRuleDialog} onOpenChange={(open) => !isAnyOperationInProgress && setShowPermitRuleDialog(open)}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => setEditingPermitRule(null)}>Add New Rule</Button>
+                  <Button 
+                    onClick={() => setEditingPermitRule(null)} 
+                    disabled={isAnyOperationInProgress}
+                  >
+                    Add New Rule
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
@@ -344,6 +443,7 @@ function AdminInterface() {
                           name="permit_type"
                           defaultValue={editingPermitRule?.permit_type || ''}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingRule}
                           required
                         >
                           <option value="">Select a permit type...</option>
@@ -361,6 +461,7 @@ function AdminInterface() {
                           name="category"
                           defaultValue={editingPermitRule?.category || ''}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingRule}
                           onChange={(e) => {
                             const customInput = document.getElementById('custom_category') as HTMLInputElement;
                             if (e.target.value && customInput) {
@@ -385,6 +486,7 @@ function AdminInterface() {
                             name="custom_category"
                             className="w-full p-2 border border-blue-300 rounded-md text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             placeholder="Type a new category name..."
+                            disabled={isSubmittingRule}
                             onInput={(e) => {
                               const customInput = e.currentTarget;
                               const selectInput = document.getElementById('category') as HTMLSelectElement;
@@ -408,6 +510,7 @@ function AdminInterface() {
                         id="title"
                         name="title"
                         defaultValue={editingPermitRule?.title || ''}
+                        disabled={isSubmittingRule}
                         required
                       />
                     </div>
@@ -417,6 +520,7 @@ function AdminInterface() {
                         id="rule"
                         name="rule"
                         defaultValue={editingPermitRule?.rule || ''}
+                        disabled={isSubmittingRule}
                         rows={4}
                         required
                       />
@@ -428,17 +532,33 @@ function AdminInterface() {
                         name="is_required"
                         defaultValue={editingPermitRule?.is_required ? 'true' : 'false'}
                         className="w-full p-2 border border-gray-300 rounded-md"
+                        disabled={isSubmittingRule}
                       >
                         <option value="true">Yes</option>
                         <option value="false">No</option>
                       </select>
                     </div>
                     <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setShowPermitRuleDialog(false)}>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setShowPermitRuleDialog(false)}
+                        disabled={isSubmittingRule}
+                      >
                         Cancel
                       </Button>
-                      <Button type="submit">
-                        {editingPermitRule ? 'Update' : 'Create'}
+                      <Button 
+                        type="submit"
+                        disabled={isSubmittingRule}
+                      >
+                        {isSubmittingRule ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>{editingPermitRule ? 'Updating...' : 'Creating...'}</span>
+                          </div>
+                        ) : (
+                          editingPermitRule ? 'Update' : 'Create'
+                        )}
                       </Button>
                     </div>
                   </form>
@@ -470,6 +590,7 @@ function AdminInterface() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={isAnyOperationInProgress}
                             onClick={() => {
                               setEditingPermitRule(rule);
                               setShowPermitRuleDialog(true);
@@ -480,6 +601,7 @@ function AdminInterface() {
                           <Button
                             size="sm"
                             variant="destructive"
+                            disabled={isAnyOperationInProgress}
                             onClick={() => setDeleteConfirm({ type: 'permit-rule', id: rule.id })}
                           >
                             Delete
@@ -487,9 +609,17 @@ function AdminInterface() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={isAnyOperationInProgress || isCloningRule}
                             onClick={() => handleClonePermitRule(rule.id)}
                           >
-                            Clone
+                            {isCloningRule ? (
+                              <div className="flex items-center space-x-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
+                                <span>Cloning...</span>
+                              </div>
+                            ) : (
+                              'Clone'
+                            )}
                           </Button>
                         </div>
                       </TableCell>
@@ -505,9 +635,14 @@ function AdminInterface() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Required Documents</CardTitle>
-              <Dialog open={showDocumentDialog} onOpenChange={setShowDocumentDialog}>
+              <Dialog open={showDocumentDialog} onOpenChange={(open) => !isAnyOperationInProgress && setShowDocumentDialog(open)}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => setEditingDocument(null)}>Add New Document</Button>
+                  <Button 
+                    onClick={() => setEditingDocument(null)}
+                    disabled={isAnyOperationInProgress}
+                  >
+                    Add New Document
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
@@ -522,6 +657,7 @@ function AdminInterface() {
                           name="permit_type"
                           defaultValue={editingDocument?.permit_type || ''}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingDocument}
                           required
                         >
                           <option value="">Select a permit type...</option>
@@ -539,6 +675,7 @@ function AdminInterface() {
                           name="required_for"
                           defaultValue={editingDocument?.required_for || 'employee'}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingDocument}
                         >
                           <option value="employee">Employee</option>
                           <option value="employer">Employer</option>
@@ -552,6 +689,7 @@ function AdminInterface() {
                         id="document_name"
                         name="document_name"
                         defaultValue={editingDocument?.document_name || ''}
+                        disabled={isSubmittingDocument}
                         required
                       />
                     </div>
@@ -561,6 +699,7 @@ function AdminInterface() {
                         id="description"
                         name="description"
                         defaultValue={editingDocument?.description || ''}
+                        disabled={isSubmittingDocument}
                         rows={3}
                       />
                     </div>
@@ -570,6 +709,7 @@ function AdminInterface() {
                         id="condition"
                         name="condition"
                         defaultValue={editingDocument?.condition || ''}
+                        disabled={isSubmittingDocument}
                         rows={2}
                       />
                     </div>
@@ -581,6 +721,7 @@ function AdminInterface() {
                           name="sort_order"
                           type="number"
                           defaultValue={editingDocument?.sort_order || 0}
+                          disabled={isSubmittingDocument}
                         />
                       </div>
                       <div>
@@ -590,6 +731,7 @@ function AdminInterface() {
                           name="is_mandatory"
                           defaultValue={editingDocument?.is_mandatory ? 'true' : 'false'}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingDocument}
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
@@ -602,6 +744,7 @@ function AdminInterface() {
                           name="is_active"
                           defaultValue={editingDocument?.is_active ? 'true' : 'false'}
                           className="w-full p-2 border border-gray-300 rounded-md"
+                          disabled={isSubmittingDocument}
                         >
                           <option value="true">Yes</option>
                           <option value="false">No</option>
@@ -609,11 +752,26 @@ function AdminInterface() {
                       </div>
                     </div>
                     <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setShowDocumentDialog(false)}>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setShowDocumentDialog(false)}
+                        disabled={isSubmittingDocument}
+                      >
                         Cancel
                       </Button>
-                      <Button type="submit">
-                        {editingDocument ? 'Update' : 'Create'}
+                      <Button 
+                        type="submit"
+                        disabled={isSubmittingDocument}
+                      >
+                        {isSubmittingDocument ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>{editingDocument ? 'Updating...' : 'Creating...'}</span>
+                          </div>
+                        ) : (
+                          editingDocument ? 'Update' : 'Create'
+                        )}
                       </Button>
                     </div>
                   </form>
@@ -649,6 +807,7 @@ function AdminInterface() {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={isAnyOperationInProgress}
                             onClick={() => {
                               setEditingDocument(doc);
                               setShowDocumentDialog(true);
@@ -659,6 +818,7 @@ function AdminInterface() {
                           <Button
                             size="sm"
                             variant="destructive"
+                            disabled={isAnyOperationInProgress}
                             onClick={() => setDeleteConfirm({ type: 'document', id: doc.id })}
                           >
                             Delete
@@ -674,7 +834,7 @@ function AdminInterface() {
         )}
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !isAnyOperationInProgress && !open && setDeleteConfirm(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -684,8 +844,11 @@ function AdminInterface() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeletingRule || isDeletingDocument}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
+                disabled={isDeletingRule || isDeletingDocument}
                 onClick={() => {
                   if (deleteConfirm) {
                     if (deleteConfirm.type === 'permit-rule') {
@@ -696,7 +859,14 @@ function AdminInterface() {
                   }
                 }}
               >
-                Delete
+                {(isDeletingRule || isDeletingDocument) ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Deleting...</span>
+                  </div>
+                ) : (
+                  'Delete'
+                )}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

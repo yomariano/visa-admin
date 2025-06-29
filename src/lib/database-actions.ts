@@ -1,170 +1,251 @@
 'use server';
 
 import { PermitRule, RequiredDocument } from './types';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from './supabase';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+// Environment helper
+const isDevelopment = process.env.NODE_ENV === 'development';
 
-console.log('🔧 Database Actions Debug Info:');
-console.log('SUPABASE_URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
-console.log('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? '✅ Set' : '❌ Missing');
+// Safe logging utility - only logs in development
+const devLog = (...args: unknown[]) => {
+  if (isDevelopment) {
+    console.log(...args);
+  }
+};
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Missing required Supabase environment variables');
-  console.error('SUPABASE_URL:', supabaseUrl);
-  console.error('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? 'SET' : 'MISSING');
-  throw new Error('Missing required Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-console.log('✅ Supabase client created successfully');
+// Create secure server-side Supabase client
+const getSupabaseClient = () => {
+  try {
+    return createServerSupabaseClient();
+  } catch (error) {
+    console.error('❌ Failed to create Supabase client:', error);
+    throw new Error('Database configuration error');
+  }
+};
 
 // Permit Rules Actions
 export async function getPermitRules(): Promise<PermitRule[]> {
-  console.log('🔍 getPermitRules() called');
+  devLog('🔍 getPermitRules() called');
+  
+  let data, error;
   try {
-    console.log('📡 Fetching permit rules from database...');
-    const { data, error } = await supabase
+    const supabase = getSupabaseClient();
+    devLog('📡 Fetching permit rules from database...');
+    
+    const result = await supabase
       .from('permit_rules')
       .select('*')
       .order('id', { ascending: false });
-
-    console.log('📊 Database response:', { data, error });
-    console.log('📈 Number of permit rules found:', data?.length || 0);
-
-    if (error) {
-      console.error('❌ Error fetching permit rules:', error);
-      throw error;
-    }
     
-    console.log('✅ Successfully fetched permit rules');
-    return data || [];
-  } catch (error) {
-    console.error('💥 Exception in getPermitRules:', error);
+    data = result.data;
+    error = result.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in getPermitRules:', queryError);
+    error = queryError;
+    data = null;
+  }
+
+  devLog('📊 Database response received');
+  devLog('📈 Number of permit rules found:', data?.length || 0);
+
+  if (error) {
+    console.error('❌ Error fetching permit rules:', error);
     return [];
   }
+  
+  devLog('✅ Successfully fetched permit rules');
+  return data || [];
 }
 
 export async function createPermitRule(data: Omit<PermitRule, 'id' | 'updated_at'>): Promise<PermitRule | null> {
+  let result, error;
   try {
-    const { data: newRule, error } = await supabase
+    const supabase = getSupabaseClient();
+    const queryResult = await supabase
       .from('permit_rules')
       .insert([data])
       .select()
       .single();
+    
+    result = queryResult.data;
+    error = queryResult.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in createPermitRule:', queryError);
+    error = queryError;
+    result = null;
+  }
 
-    if (error) throw error;
-    return newRule;
-  } catch (error) {
-    console.error('Error creating permit rule:', error);
+  if (error) {
+    console.error('❌ Error creating permit rule:', error);
     return null;
   }
+  
+  devLog('✅ Successfully created permit rule');
+  return result;
 }
 
-export async function updatePermitRule(id: number, data: Partial<Omit<PermitRule, 'id' | 'updated_at'>>): Promise<PermitRule | null> {
+export async function updatePermitRule(id: number, data: Partial<PermitRule>): Promise<PermitRule | null> {
+  let result, error;
   try {
-    const { data: updatedRule, error } = await supabase
+    const supabase = getSupabaseClient();
+    const queryResult = await supabase
       .from('permit_rules')
       .update(data)
       .eq('id', id)
       .select()
       .single();
+    
+    result = queryResult.data;
+    error = queryResult.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in updatePermitRule:', queryError);
+    error = queryError;
+    result = null;
+  }
 
-    if (error) throw error;
-    return updatedRule;
-  } catch (error) {
-    console.error('Error updating permit rule:', error);
+  if (error) {
+    console.error('❌ Error updating permit rule:', error);
     return null;
   }
+  
+  devLog('✅ Successfully updated permit rule');
+  return result;
 }
 
 export async function deletePermitRule(id: number): Promise<boolean> {
+  let error;
   try {
-    const { error } = await supabase
+    const supabase = getSupabaseClient();
+    const result = await supabase
       .from('permit_rules')
       .delete()
       .eq('id', id);
+    
+    error = result.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in deletePermitRule:', queryError);
+    error = queryError;
+  }
 
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error('Error deleting permit rule:', error);
+  if (error) {
+    console.error('❌ Error deleting permit rule:', error);
     return false;
   }
+  
+  devLog('✅ Successfully deleted permit rule');
+  return true;
 }
 
 // Required Documents Actions
 export async function getRequiredDocuments(): Promise<RequiredDocument[]> {
-  console.log('🔍 getRequiredDocuments() called');
+  devLog('🔍 getRequiredDocuments() called');
+  
+  let data, error;
   try {
-    console.log('📡 Fetching required documents from database...');
-    const { data, error } = await supabase
+    const supabase = getSupabaseClient();
+    devLog('📡 Fetching required documents from database...');
+    
+    const result = await supabase
       .from('required_documents')
       .select('*')
       .order('sort_order', { ascending: true })
       .order('id', { ascending: false });
-
-    console.log('📊 Database response:', { data, error });
-    console.log('📈 Number of required documents found:', data?.length || 0);
-
-    if (error) {
-      console.error('❌ Error fetching required documents:', error);
-      throw error;
-    }
     
-    console.log('✅ Successfully fetched required documents');
-    return data || [];
-  } catch (error) {
-    console.error('💥 Exception in getRequiredDocuments:', error);
+    data = result.data;
+    error = result.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in getRequiredDocuments:', queryError);
+    error = queryError;
+    data = null;
+  }
+
+  devLog('📊 Database response received');
+  devLog('📈 Number of required documents found:', data?.length || 0);
+
+  if (error) {
+    console.error('❌ Error fetching required documents:', error);
     return [];
   }
+  
+  devLog('✅ Successfully fetched required documents');
+  return data || [];
 }
 
 export async function createRequiredDocument(data: Omit<RequiredDocument, 'id' | 'updated_at'>): Promise<RequiredDocument | null> {
+  let result, error;
   try {
-    const { data: newDoc, error } = await supabase
+    const supabase = getSupabaseClient();
+    const queryResult = await supabase
       .from('required_documents')
       .insert([data])
       .select()
       .single();
+    
+    result = queryResult.data;
+    error = queryResult.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in createRequiredDocument:', queryError);
+    error = queryError;
+    result = null;
+  }
 
-    if (error) throw error;
-    return newDoc;
-  } catch (error) {
-    console.error('Error creating required document:', error);
+  if (error) {
+    console.error('❌ Error creating required document:', error);
     return null;
   }
+  
+  devLog('✅ Successfully created required document');
+  return result;
 }
 
-export async function updateRequiredDocument(id: number, data: Partial<Omit<RequiredDocument, 'id' | 'updated_at'>>): Promise<RequiredDocument | null> {
+export async function updateRequiredDocument(id: number, data: Partial<RequiredDocument>): Promise<RequiredDocument | null> {
+  let result, error;
   try {
-    const { data: updatedDoc, error } = await supabase
+    const supabase = getSupabaseClient();
+    const queryResult = await supabase
       .from('required_documents')
       .update(data)
       .eq('id', id)
       .select()
       .single();
+    
+    result = queryResult.data;
+    error = queryResult.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in updateRequiredDocument:', queryError);
+    error = queryError;
+    result = null;
+  }
 
-    if (error) throw error;
-    return updatedDoc;
-  } catch (error) {
-    console.error('Error updating required document:', error);
+  if (error) {
+    console.error('❌ Error updating required document:', error);
     return null;
   }
+  
+  devLog('✅ Successfully updated required document');
+  return result;
 }
 
 export async function deleteRequiredDocument(id: number): Promise<boolean> {
+  let error;
   try {
-    const { error } = await supabase
+    const supabase = getSupabaseClient();
+    const result = await supabase
       .from('required_documents')
       .delete()
       .eq('id', id);
+    
+    error = result.error;
+  } catch (queryError) {
+    console.error('💥 Query exception in deleteRequiredDocument:', queryError);
+    error = queryError;
+  }
 
-    if (error) throw error;
-    return true;
-  } catch (error) {
-    console.error('Error deleting required document:', error);
+  if (error) {
+    console.error('❌ Error deleting required document:', error);
     return false;
   }
+  
+  devLog('✅ Successfully deleted required document');
+  return true;
 } 

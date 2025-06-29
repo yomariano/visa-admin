@@ -1,39 +1,51 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
+
+// Environment helper
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Safe logging utility - only logs in development
+const devLog = (...args: unknown[]) => {
+  if (isDevelopment) {
+    console.log(...args);
+  }
+};
 
 export async function GET() {
-  console.log('🔧 Testing database connection...');
+  devLog('🔧 Testing database connection...');
   
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-    
-    console.log('Environment check:');
-    console.log('SUPABASE_URL:', supabaseUrl ? '✅ Set' : '❌ Missing');
-    console.log('SUPABASE_SERVICE_KEY:', supabaseServiceKey ? '✅ Set' : '❌ Missing');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing environment variables');
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    console.log('✅ Supabase client created');
+    const supabase = createServerSupabaseClient();
+    devLog('✅ Supabase client created');
     
     // Test connection with a simple query
-    console.log('📡 Testing database connection...');
-    const { data, error, count } = await supabase
-      .from('required_documents')
-      .select('*', { count: 'exact' })
-      .limit(1);
+    devLog('📡 Testing database connection...');
     
-    console.log('Database response:', { data, error, count });
+    let data, error, count;
+    try {
+      const result = await supabase
+        .from('required_documents')
+        .select('*', { count: 'exact' })
+        .limit(1);
+      
+      data = result.data;
+      error = result.error;
+      count = result.count;
+    } catch (queryError) {
+      console.error('💥 Query exception:', queryError);
+      error = queryError;
+      data = null;
+      count = null;
+    }
+    
+    devLog('Database response received');
     
     if (error) {
       console.error('❌ Database error:', error);
       return NextResponse.json({
         success: false,
-        error: error.message,
-        details: error
+        error: error instanceof Error ? error.message : 'Database error',
+        details: isDevelopment ? error : undefined
       }, { status: 500 });
     }
     
@@ -41,7 +53,7 @@ export async function GET() {
       success: true,
       message: 'Database connection successful',
       recordCount: count,
-      sampleData: data,
+      sampleDataCount: data?.length || 0,
       timestamp: new Date().toISOString()
     });
     
