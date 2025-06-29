@@ -14,11 +14,13 @@ import { PermitRule, RequiredDocument } from '@/lib/types';
 import {
   createRequiredDocument,
   updateRequiredDocument,
-  deleteRequiredDocument
+  deleteRequiredDocument,
+  createPermitRule,
+  updatePermitRule,
+  deletePermitRule
 } from '@/lib/database-actions';
 import { useAuth } from '@/components/auth-provider';
 import { LoginPage, UnauthorizedPage } from '@/components/login';
-import { supabase } from '@/lib/supabase';
 
 function AdminInterface() {
   const [activeTab, setActiveTab] = useState<'permit-rules' | 'required-documents'>('permit-rules');
@@ -53,32 +55,23 @@ function AdminInterface() {
     console.log('🚀 loadData() called - starting data fetch...');
     setLoading(true);
     try {
-      console.log('📞 Fetching data directly using Supabase client...');
+      console.log('📞 Fetching data from API routes...');
 
-      const [
-        { data: rules, error: rulesError }, 
-        { data: documents, error: docsError }
-      ] = await Promise.all([
-        supabase
-          .from('permit_rules')
-          .select('*')
-          .order('id', { ascending: false }),
-        supabase
-          .from('required_documents')
-          .select('*')
-          .order('sort_order', { ascending: true })
-          .order('id', { ascending: false })
+      const [rulesResponse, documentsResponse] = await Promise.all([
+        fetch('/api/permit-rules'),
+        fetch('/api/required-documents')
       ]);
 
-      if (rulesError) {
-        console.error('❌ Error fetching permit rules:', rulesError);
-        throw rulesError;
+      if (!rulesResponse.ok) {
+        throw new Error(`Failed to fetch permit rules: ${rulesResponse.statusText}`);
       }
 
-      if (docsError) {
-        console.error('❌ Error fetching required documents:', docsError);
-        throw docsError;
+      if (!documentsResponse.ok) {
+        throw new Error(`Failed to fetch required documents: ${documentsResponse.statusText}`);
       }
+
+      const rules = await rulesResponse.json();
+      const documents = await documentsResponse.json();
 
       console.log('📋 Received permit rules:', rules);
       console.log('📋 Received required documents:', documents);
@@ -88,17 +81,17 @@ function AdminInterface() {
       // Log specific documents for debugging
       if (documents && documents.length > 0) {
         console.log('📄 First few documents:');
-        documents.slice(0, 3).forEach((doc, index) => {
+        documents.slice(0, 3).forEach((doc: RequiredDocument, index: number) => {
           console.log(`  ${index + 1}. ID: ${doc.id}, Name: "${doc.document_name}", Type: ${doc.permit_type}, Active: ${doc.is_active}`);
         });
         
         // Check for signature-related documents
-        const signatureDocs = documents.filter(doc => 
+        const signatureDocs = documents.filter((doc: RequiredDocument) => 
           doc.document_name.toLowerCase().includes('signature')
         );
         console.log('📝 Signature-related documents found:', signatureDocs.length);
         if (signatureDocs.length > 0) {
-          signatureDocs.forEach(doc => {
+          signatureDocs.forEach((doc: RequiredDocument) => {
             console.log(`  - ID: ${doc.id}, Name: "${doc.document_name}", Active: ${doc.is_active}`);
           });
         }
@@ -108,22 +101,22 @@ function AdminInterface() {
       setRequiredDocuments(documents || []);
       
       // Extract unique permit types from existing permit rules and required documents
-      const permitTypesFromRules = rules?.map(rule => rule.permit_type).filter(Boolean) || [];
-      const permitTypesFromDocs = documents?.map(doc => doc.permit_type).filter(Boolean) || [];
+      const permitTypesFromRules = rules?.map((rule: PermitRule) => rule.permit_type).filter(Boolean) || [];
+      const permitTypesFromDocs = documents?.map((doc: RequiredDocument) => doc.permit_type).filter(Boolean) || [];
       const allPermitTypes = [...permitTypesFromRules, ...permitTypesFromDocs];
       const uniquePermitTypes = Array.from(new Set(allPermitTypes)).sort();
-      setPermitTypes(uniquePermitTypes);
+      setPermitTypes(uniquePermitTypes as string[]);
       
       // Extract unique categories from existing permit rules
       const uniqueCategories = Array.from(new Set(
-        rules?.map(rule => rule.category).filter(Boolean) || []
+        rules?.map((rule: PermitRule) => rule.category).filter(Boolean) || []
       )).sort();
-      setCategories(uniqueCategories);
+      setCategories(uniqueCategories as string[]);
       
       console.log('📋 Extracted permit types:', uniquePermitTypes);
       console.log('📋 Extracted categories:', uniqueCategories);
       console.log('📊 Categories count:', uniqueCategories.length);
-      console.log('📋 Raw categories from rules:', rules?.map(rule => rule.category) || []);
+      console.log('📋 Raw categories from rules:', rules?.map((rule: PermitRule) => rule.category) || []);
       
       console.log('✅ Data loaded successfully');
     } catch (error) {
@@ -164,27 +157,23 @@ function AdminInterface() {
     }
 
     try {
+      let result;
       if (editingPermitRule) {
-        console.log('🔄 Updating permit rule client-side:', editingPermitRule.id, data);
-        const { error } = await supabase
-          .from('permit_rules')
-          .update(data)
-          .eq('id', editingPermitRule.id);
-        
-        if (error) throw error;
+        console.log('🔄 Updating permit rule server-side:', editingPermitRule.id, data);
+        result = await updatePermitRule(editingPermitRule.id, data);
+        console.log('📝 Update result:', result);
         toast.success('Permit rule updated successfully');
       } else {
-        console.log('➕ Creating permit rule client-side:', data);
-        const { error } = await supabase
-          .from('permit_rules')
-          .insert([data]);
-        
-        if (error) throw error;
+        console.log('➕ Creating permit rule server-side:', data);
+        result = await createPermitRule(data);
+        console.log('📝 Create result:', result);
         toast.success('Permit rule created successfully');
       }
+      
+      console.log('✅ Permit rule operation completed successfully');
       setShowPermitRuleDialog(false);
       setEditingPermitRule(null);
-      await loadData(); // Reload data from Supabase
+      await loadData(); // Reload data
     } catch (error) {
       toast.error('Failed to save permit rule');
       console.error('Error saving permit rule:', error);
@@ -196,16 +185,16 @@ function AdminInterface() {
   const handleDeletePermitRule = async (id: number) => {
     setIsDeletingRule(true);
     try {
-      console.log('🗑️ Deleting permit rule client-side:', id);
-      const { error } = await supabase
-        .from('permit_rules')
-        .delete()
-        .eq('id', id);
+      console.log('🗑️ Deleting permit rule server-side:', id);
+      const success = await deletePermitRule(id);
       
-      if (error) throw error;
-      toast.success('Permit rule deleted successfully');
-      setDeleteConfirm(null);
-      await loadData(); // Reload data from Supabase
+      if (success) {
+        toast.success('Permit rule deleted successfully');
+        setDeleteConfirm(null);
+        await loadData(); // Reload data
+      } else {
+        throw new Error('Delete operation failed');
+      }
     } catch (error) {
       toast.error('Failed to delete permit rule');
       console.error('Error deleting permit rule:', error);
@@ -217,28 +206,30 @@ function AdminInterface() {
   const handleClonePermitRule = async (id: number) => {
     setIsCloningRule(true);
     try {
-      console.log('📋 Cloning permit rule client-side:', id);
+      console.log('📋 Cloning permit rule server-side:', id);
       
-      // First, fetch the existing rule
-      const { data: existing, error: fetchError } = await supabase
-        .from('permit_rules')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // First, find the existing rule in our current data
+      const existing = permitRules.find(rule => rule.id === id);
+      if (!existing) {
+        throw new Error('Rule not found for cloning');
+      }
       
-      if (fetchError) throw fetchError;
+      // Create new rule data without ID and timestamp
+      const cloneData = {
+        permit_type: existing.permit_type,
+        title: existing.title,
+        rule: existing.rule,
+        category: existing.category,
+        is_required: existing.is_required,
+      };
       
-      // Remove ID and timestamp fields, then insert
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id: _id, created_at: _created, updated_at: _updated, ...cloneData } = existing;
-      
-      const { error: insertError } = await supabase
-        .from('permit_rules')
-        .insert([cloneData]);
-      
-      if (insertError) throw insertError;
-      toast.success('Permit rule cloned successfully');
-      await loadData(); // Reload data from Supabase
+      const result = await createPermitRule(cloneData);
+      if (result) {
+        toast.success('Permit rule cloned successfully');
+        await loadData(); // Reload data
+      } else {
+        throw new Error('Clone operation failed');
+      }
     } catch (error) {
       toast.error('Failed to clone permit rule');
       console.error('Error cloning permit rule:', error);
