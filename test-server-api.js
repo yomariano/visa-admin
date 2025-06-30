@@ -6,30 +6,39 @@
 console.log('🧪 Testing Server-side API Configuration');
 console.log('========================================');
 
-// Load environment variables
-require('dotenv').config({ path: '.env.local' });
+// Load environment variables using dynamic import
+async function loadEnv() {
+  try {
+    const { config } = await import('dotenv');
+    config({ path: '.env.local' });
+  } catch {
+    console.log('Note: dotenv not available, using system env vars');
+  }
+}
 
-console.log('Environment Variables:');
-console.log('  NODE_ENV:', process.env.NODE_ENV);
-console.log('  API_URL:', process.env.API_URL || 'not set');
-console.log('  NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL || 'not set');
+async function main() {
+  await loadEnv();
 
-// Simulate server environment
-const isServer = typeof window === 'undefined';
-console.log('\nEnvironment Check:');
-console.log('  typeof window:', typeof window);
-console.log('  isServer:', isServer);
+  console.log('Environment Variables:');
+  console.log('  NODE_ENV:', process.env.NODE_ENV);
+  console.log('  API_URL:', process.env.API_URL || 'not set');
+  console.log('  NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL || 'not set');
 
-// Test API URL resolution
-const API_BASE_URL = isServer 
-  ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
-  : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
+  // Simulate server environment
+  const isServer = typeof window === 'undefined';
+  console.log('\nEnvironment Check:');
+  console.log('  typeof window:', typeof window);
+  console.log('  isServer:', isServer);
 
-console.log('\nAPI Configuration:');
-console.log('  Resolved API_BASE_URL:', API_BASE_URL);
+  // Test API URL resolution
+  const API_BASE_URL = isServer 
+    ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
+    : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
 
-// Test actual API call
-async function testApiCall() {
+  console.log('\nAPI Configuration:');
+  console.log('  Resolved API_BASE_URL:', API_BASE_URL);
+
+  // Test actual API call
   console.log('\n🔍 Testing API Call...');
   
   const url = `${API_BASE_URL}/health`;
@@ -52,4 +61,4 @@ async function testApiCall() {
 }
 
 // Run the test
-testApiCall().catch(console.error); 
+main().catch(console.error); 
