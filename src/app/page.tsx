@@ -12,6 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PermitRule, RequiredDocument } from '@/lib/types';
 import {
+  getPermitRules,
+  getRequiredDocuments,
   createRequiredDocument,
   updateRequiredDocument,
   deleteRequiredDocument,
@@ -55,23 +57,12 @@ function AdminInterface() {
     console.log('🚀 loadData() called - starting data fetch...');
     setLoading(true);
     try {
-      console.log('📞 Fetching data from API routes...');
+      console.log('📞 Fetching data from API...');
 
-      const [rulesResponse, documentsResponse] = await Promise.all([
-        fetch('/api/permit-rules'),
-        fetch('/api/required-documents')
+      const [rules, documents] = await Promise.all([
+        getPermitRules(),
+        getRequiredDocuments()
       ]);
-
-      if (!rulesResponse.ok) {
-        throw new Error(`Failed to fetch permit rules: ${rulesResponse.statusText}`);
-      }
-
-      if (!documentsResponse.ok) {
-        throw new Error(`Failed to fetch required documents: ${documentsResponse.statusText}`);
-      }
-
-      const rules = await rulesResponse.json();
-      const documents = await documentsResponse.json();
 
       console.log('📋 Received permit rules:', rules);
       console.log('📋 Received required documents:', documents);
