@@ -3,11 +3,30 @@
 
 import { PermitRule, RequiredDocument } from './types';
 
-// Environment configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz';
+// Environment configuration - handle both server and client environments
+const isServer = typeof window === 'undefined';
+
+// For server-side: use regular env var, for client-side: use NEXT_PUBLIC_ env var
+const API_BASE_URL = isServer 
+  ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
+  : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
 
 // Development environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Log configuration for debugging
+if (isDevelopment) {
+  console.log('🔧 API Client Configuration:');
+  console.log('  - Environment:', isServer ? 'Server' : 'Client');
+  console.log('  - API Base URL:', API_BASE_URL);
+  console.log('  - NODE_ENV:', process.env.NODE_ENV);
+  if (isServer) {
+    console.log('  - API_URL (server):', process.env.API_URL || 'not set');
+    console.log('  - NEXT_PUBLIC_API_URL (fallback):', process.env.NEXT_PUBLIC_API_URL || 'not set');
+  } else {
+    console.log('  - NEXT_PUBLIC_API_URL (client):', process.env.NEXT_PUBLIC_API_URL || 'not set');
+  }
+}
 
 // API Response Types
 interface DiagnosticsResponse {
@@ -66,6 +85,9 @@ async function apiRequest<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   
   devLog(`Making ${options.method || 'GET'} request to:`, endpoint);
+  devLog(`Full URL:`, url);
+  devLog(`Environment:`, isServer ? 'Server' : 'Client');
+  devLog(`API_BASE_URL:`, API_BASE_URL);
   
   try {
     const response = await fetch(url, {
@@ -98,7 +120,7 @@ async function apiRequest<T>(
     }
 
     const data = await response.json();
-    devLog(`Successfully received data from ${endpoint}:`, data);
+    devLog(`Successfully received data from ${endpoint}:`, Array.isArray(data) ? `Array with ${data.length} items` : 'Object');
     
     return data;
     
@@ -108,6 +130,9 @@ async function apiRequest<T>(
     }
     
     console.error(`💥 Network error for ${endpoint}:`, error);
+    console.error(`💥 Full URL was:`, url);
+    console.error(`💥 Environment:`, isServer ? 'Server' : 'Client');
+    console.error(`💥 API_BASE_URL was:`, API_BASE_URL);
     throw new ApiError(
       `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       0,

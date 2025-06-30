@@ -13,6 +13,15 @@ const devLog = (...args: unknown[]) => {
   }
 };
 
+// Log API configuration on module load
+if (isDevelopment) {
+  console.log('🎯 Database Actions Module Loaded:');
+  console.log('  - NODE_ENV:', process.env.NODE_ENV);
+  console.log('  - API_URL (server):', process.env.API_URL || 'not set');
+  console.log('  - NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL || 'not set');
+  console.log('  - Running on:', typeof window === 'undefined' ? 'Server' : 'Client');
+}
+
 // Error handling helper for API calls
 const handleApiError = (error: unknown, operation: string) => {
   if (error instanceof ApiError) {
