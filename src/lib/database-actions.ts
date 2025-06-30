@@ -1,4 +1,5 @@
-'use server';
+// Client-side database actions using API client
+// This avoids server-side network connectivity issues
 
 import { PermitRule, RequiredDocument } from './types';
 import { permitRulesApi, requiredDocumentsApi, ApiError } from './api-client';
