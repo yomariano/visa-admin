@@ -5,24 +5,11 @@ import { PermitRule, RequiredDocument } from './types';
 
 // Environment configuration - handle both server and client environments
 const isServer = typeof window === 'undefined';
-const isProduction = process.env.NODE_ENV === 'production';
 
-// For production server-side, try internal network first
-const getApiBaseUrl = () => {
-  if (isServer && isProduction) {
-    // Try internal network routing first (if services are in same network)
-    const internalUrl = process.env.INTERNAL_API_URL || process.env.API_URL;
-    if (internalUrl) {
-      return internalUrl;
-    }
-  }
-  
-  return isServer 
-    ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
-    : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
-};
-
-const API_BASE_URL = getApiBaseUrl();
+// For server-side: use regular env var, for client-side: use NEXT_PUBLIC_ env var
+const API_BASE_URL = isServer 
+  ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
+  : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
 
 // Development environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
