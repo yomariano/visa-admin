@@ -6,10 +6,24 @@ import { PermitRule, RequiredDocument } from './types';
 // Environment configuration - handle both server and client environments
 const isServer = typeof window === 'undefined';
 
-// For server-side: use regular env var, for client-side: use NEXT_PUBLIC_ env var
-const API_BASE_URL = isServer 
-  ? (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz')
-  : (process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz');
+// Build a prioritized list of base URLs so we can gracefully fall back if the primary target is unreachable.
+// 1. Explicit runtime variables (highest priority)
+// 2. Well-known internal service names (for Docker / Coolify networks)
+// 3. Public domain (last-ditch fallback)
+
+const candidateBaseUrls: string[] = isServer
+  ? [
+      process.env.API_URL,                             // Server-only override
+      process.env.INTERNAL_API_URL,                    // Optional internal URL (e.g. http://api:3001)
+      process.env.NEXT_PUBLIC_API_URL,                 // Shared var – may point to public URL
+      'http://admin-api:3001',                         // Docker service name (same stack)
+      'http://localhost:3001',                         // Local dev compose
+      'https://admin-api.thecodejesters.xyz'           // Public domain (default)
+    ].filter(Boolean) as string[]
+  : [process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz'];
+
+// The active base URL will be resolved lazily so we keep the first successful one in memory.
+let resolvedBaseUrl: string | null = null;
 
 // Development environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -18,7 +32,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 if (isDevelopment) {
   console.log('🔧 API Client Configuration:');
   console.log('  - Environment:', isServer ? 'Server' : 'Client');
-  console.log('  - API Base URL:', API_BASE_URL);
+  console.log('  - API Base URL:', candidateBaseUrls);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   if (isServer) {
     console.log('  - API_URL (server):', process.env.API_URL || 'not set');
@@ -82,63 +96,73 @@ async function apiRequest<T>(
   endpoint: string, 
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  
-  devLog(`Making ${options.method || 'GET'} request to:`, endpoint);
-  devLog(`Full URL:`, url);
-  devLog(`Environment:`, isServer ? 'Server' : 'Client');
-  devLog(`API_BASE_URL:`, API_BASE_URL);
-  
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    });
+  // Determine the base URL to use. If we have already found one that works, reuse it to avoid extra retries.
+  const baseUrlsToTry = resolvedBaseUrl ? [resolvedBaseUrl] : candidateBaseUrls;
 
-    devLog(`Response status: ${response.status} for ${endpoint}`);
+  // Iterate through candidate URLs until one succeeds.
+  let lastNetworkError: unknown = null;
+  for (const baseUrl of baseUrlsToTry) {
+    const url = `${baseUrl}${endpoint}`;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorMessage = `HTTP ${response.status}`;
-      
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorMessage;
-      } catch {
-        errorMessage = errorText || errorMessage;
+    devLog(`Making ${options.method || 'GET'} request to:`, endpoint);
+    devLog(`Full URL:`, url);
+    devLog(`Environment:`, isServer ? 'Server' : 'Client');
+    devLog(`Attempting with base URL:`, baseUrl);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        ...options,
+      });
+
+      devLog(`Response status: ${response.status} for ${endpoint}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new ApiError(errorMessage, response.status, endpoint);
       }
-      
-      throw new ApiError(errorMessage, response.status, endpoint);
-    }
 
-    // Handle empty responses (like 204 No Content)
-    if (response.status === 204) {
-      return {} as T;
-    }
+      // Handle empty responses (like 204 No Content)
+      if (response.status === 204) {
+        resolvedBaseUrl = baseUrl; // Cache successful URL
+        return {} as T;
+      }
 
-    const data = await response.json();
-    devLog(`Successfully received data from ${endpoint}:`, Array.isArray(data) ? `Array with ${data.length} items` : 'Object');
-    
-    return data;
-    
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
+      const data = await response.json();
+      devLog(`Successfully received data from ${endpoint}:`, Array.isArray(data) ? `Array with ${data.length} items` : 'Object');
+
+      resolvedBaseUrl = baseUrl; // Cache successful URL
+      return data;
+    } catch (error) {
+      // If the error is an ApiError (HTTP error), rethrow immediately – trying another base URL won't help.
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      console.error(`💥 Network error for ${endpoint} via ${baseUrl}:`, error);
+
+      // Only try the next base URL if this was a network-level failure. Store the last error to throw if all fall.
+      lastNetworkError = error;
     }
-    
-    console.error(`💥 Network error for ${endpoint}:`, error);
-    console.error(`💥 Full URL was:`, url);
-    console.error(`💥 Environment:`, isServer ? 'Server' : 'Client');
-    console.error(`💥 API_BASE_URL was:`, API_BASE_URL);
-    throw new ApiError(
-      `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      0,
-      endpoint
-    );
   }
+
+  // All attempts failed – surface the last network error as an ApiError so callers can distinguish.
+  console.error(`❌ All API base URLs failed for ${endpoint}`);
+  throw new ApiError(
+    `Network error: ${lastNetworkError instanceof Error ? lastNetworkError.message : 'Unknown error'}`,
+    0,
+    endpoint
+  );
 }
 
 // Permit Rules API functions
@@ -249,6 +273,6 @@ export const healthApi = {
 
 // Configuration info
 export const apiConfig = {
-  baseUrl: API_BASE_URL,
+  baseUrl: candidateBaseUrls[0],
   isDevelopment,
 }; 
