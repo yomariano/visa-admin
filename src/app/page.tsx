@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -324,15 +324,15 @@ function AdminInterface() {
   }
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-8">
       <Toaster position="top-right" />
       
       {/* Loading overlay when any operation is in progress */}
       {isAnyOperationInProgress && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="glass-card rounded-2xl p-8 flex items-center space-x-4 shadow-2xl border-0">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-3 border-primary-solid"></div>
-            <span className="text-foreground font-medium">
+        <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 flex items-center space-x-3 shadow-lg border">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+            <span className="text-gray-700">
               {loading && 'Loading data...'}
               {isSubmittingRule && (editingPermitRule ? 'Updating permit rule...' : 'Creating permit rule...')}
               {isSubmittingDocument && (editingDocument ? 'Updating document...' : 'Creating document...')}
@@ -344,113 +344,71 @@ function AdminInterface() {
         </div>
       )}
       
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Modern Header */}
-        <div className="glass-card rounded-3xl p-8 shadow-xl border-0 float">
-          <div className="flex justify-between items-start">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <h1 className="text-5xl font-bold bg-gradient-to-r from-primary-solid to-accent-foreground bg-clip-text text-transparent">
-                  Visa Admin Panel
-                </h1>
-                <p className="text-muted-foreground text-lg font-medium">
-                  Manage permit rules and required documents with ease
-                </p>
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Visa Admin Panel</h1>
+            <p className="text-gray-600 mt-2">Manage permit rules and required documents</p>
+            {process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true' && (
+              <div className="mt-2 px-3 py-1 bg-yellow-100 border border-yellow-400 text-yellow-800 text-sm rounded-md inline-block">
+                🚧 DEV MODE: Authentication bypassed
               </div>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">
+              Welcome, <strong>{user?.email}</strong>
               {process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true' && (
-                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 border border-yellow-400/30 text-yellow-800 dark:text-yellow-200 text-sm rounded-full backdrop-blur-sm">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
-                  DEV MODE: Authentication bypassed
-                </div>
+                <span className="ml-2 text-yellow-600 font-medium">(Dev User)</span>
               )}
-            </div>
-            <div className="flex items-center gap-6">
-              <div className="text-right">
-                <div className="text-sm text-muted-foreground">Welcome back,</div>
-                <div className="font-semibold text-foreground">
-                  {user?.email}
-                  {process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true' && (
-                    <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">(Dev User)</span>
-                  )}
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={signOut} 
-                disabled={isAnyOperationInProgress}
-                className="backdrop-blur-sm border-border/50 hover:border-border hover:shadow-lg transition-all duration-300"
-              >
-                Sign Out
-              </Button>
-            </div>
+            </span>
+            <Button variant="outline" onClick={signOut} disabled={isAnyOperationInProgress}>
+              Sign Out
+            </Button>
           </div>
         </div>
 
-        {/* Modern Tabs */}
-        <div className="glass-card rounded-2xl p-2 shadow-lg border-0">
-          <nav className="flex space-x-2">
-            <button
-              onClick={() => setActiveTab('permit-rules')}
-              disabled={isAnyOperationInProgress}
-              className={`flex-1 py-4 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${
-                activeTab === 'permit-rules'
-                  ? 'bg-gradient-to-r from-primary-solid to-primary-solid text-primary-foreground shadow-lg backdrop-blur-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-              } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <span>Permit Rules</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                  activeTab === 'permit-rules' 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  {permitRules.length}
-                </span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('required-documents')}
-              disabled={isAnyOperationInProgress}
-              className={`flex-1 py-4 px-6 rounded-xl font-medium text-sm transition-all duration-300 ${
-                activeTab === 'required-documents'
-                  ? 'bg-gradient-to-r from-primary-solid to-primary-solid text-primary-foreground shadow-lg backdrop-blur-sm'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-              } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <span>Required Documents</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                  activeTab === 'required-documents' 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  {requiredDocuments.length}
-                </span>
-              </div>
-            </button>
-          </nav>
+        {/* Tabs */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('permit-rules')}
+                disabled={isAnyOperationInProgress}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'permit-rules'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Permit Rules ({permitRules.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('required-documents')}
+                disabled={isAnyOperationInProgress}
+                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'required-documents'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } ${isAnyOperationInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Required Documents ({requiredDocuments.length})
+              </button>
+            </nav>
+          </div>
         </div>
 
         {/* Content */}
         {activeTab === 'permit-rules' && (
-          <Card className="float">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border/10 pb-6 mb-6">
-              <div>
-                <CardTitle className="flex items-center gap-3">
-                  <span className="w-3 h-3 bg-gradient-to-r from-primary-solid to-accent-foreground rounded-full"></span>
-                  Permit Rules
-                </CardTitle>
-                <CardDescription>Manage visa permit rules and requirements</CardDescription>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Permit Rules</CardTitle>
               <Dialog open={showPermitRuleDialog} onOpenChange={(open) => !isAnyOperationInProgress && setShowPermitRuleDialog(open)}>
                 <DialogTrigger asChild>
                   <Button 
                     onClick={() => setEditingPermitRule(null)} 
                     disabled={isAnyOperationInProgress}
-                    className="shadow-lg"
                   >
-                    <span className="mr-2">+</span>
                     Add New Rule
                   </Button>
                 </DialogTrigger>
@@ -610,7 +568,7 @@ function AdminInterface() {
                       <TableCell>{rule.category}</TableCell>
                       <TableCell>{rule.is_required ? 'Yes' : 'No'}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex space-x-2">
                           <Button
                             size="sm"
                             variant="outline"
@@ -619,9 +577,7 @@ function AdminInterface() {
                               setEditingPermitRule(rule);
                               setShowPermitRuleDialog(true);
                             }}
-                            className="hover:bg-blue-50 dark:hover:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
                           >
-                            <span className="mr-1">✏️</span>
                             Edit
                           </Button>
                           <Button
@@ -629,9 +585,7 @@ function AdminInterface() {
                             variant="destructive"
                             disabled={isAnyOperationInProgress}
                             onClick={() => setDeleteConfirm({ type: 'permit-rule', id: rule.id })}
-                            className="hover:shadow-red-500/25"
                           >
-                            <span className="mr-1">🗑️</span>
                             Delete
                           </Button>
                           <Button
@@ -639,18 +593,14 @@ function AdminInterface() {
                             variant="outline"
                             disabled={isAnyOperationInProgress || isCloningRule}
                             onClick={() => handleClonePermitRule(rule.id)}
-                            className="hover:bg-green-50 dark:hover:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
                           >
                             {isCloningRule ? (
-                              <div className="flex items-center gap-1">
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-green-600"></div>
+                              <div className="flex items-center space-x-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-600"></div>
                                 <span>Cloning...</span>
                               </div>
                             ) : (
-                              <>
-                                <span className="mr-1">📋</span>
-                                Clone
-                              </>
+                              'Clone'
                             )}
                           </Button>
                         </div>
@@ -664,23 +614,15 @@ function AdminInterface() {
         )}
 
         {activeTab === 'required-documents' && (
-          <Card className="float">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border/10 pb-6 mb-6">
-              <div>
-                <CardTitle className="flex items-center gap-3">
-                  <span className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full"></span>
-                  Required Documents
-                </CardTitle>
-                <CardDescription>Manage required documents for visa applications</CardDescription>
-              </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Required Documents</CardTitle>
               <Dialog open={showDocumentDialog} onOpenChange={(open) => !isAnyOperationInProgress && setShowDocumentDialog(open)}>
                 <DialogTrigger asChild>
                   <Button 
                     onClick={() => setEditingDocument(null)}
                     disabled={isAnyOperationInProgress}
-                    className="shadow-lg"
                   >
-                    <span className="mr-2">+</span>
                     Add New Document
                   </Button>
                 </DialogTrigger>
