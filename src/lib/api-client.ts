@@ -14,9 +14,10 @@ const isServer = typeof window === 'undefined';
 const candidateBaseUrls: string[] = isServer
   ? [
       process.env.API_URL,                             // Server-only override
-      process.env.INTERNAL_API_URL,                    // Optional internal URL (e.g. http://api:3001)
+      process.env.INTERNAL_API_URL,                    // Optional internal URL (e.g. http://visa-admin-api:3001)
       process.env.NEXT_PUBLIC_API_URL,                 // Shared var – may point to public URL
-      'http://admin-api:3001',                         // Docker service name (same stack)
+      'http://visa-admin-api:3001',                    // Docker service name (same stack)
+      'http://admin-api:3001',                         // Alternative Docker service name
       'http://localhost:3001',                         // Local dev compose
       'https://admin-api.thecodejesters.xyz'           // Public domain (default)
     ].filter(Boolean) as string[]
