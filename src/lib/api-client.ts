@@ -14,12 +14,12 @@ const isServer = typeof window === 'undefined';
 const candidateBaseUrls: string[] = isServer
   ? [
       process.env.API_URL,                             // Server-only override
+      'https://admin-api.thecodejesters.xyz',          // Public domain (working, prioritized)
       process.env.INTERNAL_API_URL,                    // Optional internal URL (e.g. http://visa-admin-api:3001)
       process.env.NEXT_PUBLIC_API_URL,                 // Shared var – may point to public URL
       'http://visa-admin-api:3001',                    // Docker service name (same stack)
       'http://admin-api:3001',                         // Alternative Docker service name
       'http://localhost:3001',                         // Local dev compose
-      'https://admin-api.thecodejesters.xyz'           // Public domain (default)
     ].filter(Boolean) as string[]
   : [process.env.NEXT_PUBLIC_API_URL || 'https://admin-api.thecodejesters.xyz'];
 
@@ -29,14 +29,18 @@ let resolvedBaseUrl: string | null = null;
 // Development environment detection
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// Always log configuration in production for debugging
+const shouldLog = isDevelopment || process.env.NODE_ENV === 'production';
+
 // Log configuration for debugging
-if (isDevelopment) {
+if (shouldLog) {
   console.log('🔧 API Client Configuration:');
   console.log('  - Environment:', isServer ? 'Server' : 'Client');
-  console.log('  - API Base URL:', candidateBaseUrls);
+  console.log('  - API Base URLs (in priority order):', candidateBaseUrls);
   console.log('  - NODE_ENV:', process.env.NODE_ENV);
   if (isServer) {
     console.log('  - API_URL (server):', process.env.API_URL || 'not set');
+    console.log('  - INTERNAL_API_URL:', process.env.INTERNAL_API_URL || 'not set');
     console.log('  - NEXT_PUBLIC_API_URL (fallback):', process.env.NEXT_PUBLIC_API_URL || 'not set');
   } else {
     console.log('  - NEXT_PUBLIC_API_URL (client):', process.env.NEXT_PUBLIC_API_URL || 'not set');
